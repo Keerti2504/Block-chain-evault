@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eVault System</title>
+    <script src="https://cdn.jsdelivr.net/gh/ethereum/web3.js@1.0.0-beta.37/dist/web3.min.js"></script>
+    <script>
+        // Load contract ABI and address
+        async function loadContractDetails() {
+            try {
+                const contractABI = await (await fetch('contractABI.json')).json();
+                const contractAddress = await (await fetch('contractAddress.txt')).text().trim();
+
+                // Connect to the local Ethereum node
+                const web3 = new Web3(Web3.givenProvider || "http://127.0.0.1:8545");
+
+                // Create contract instance
+                const contract = new web3.eth.Contract(contractABI, contractAddress);
+
+                return { web3, contract };
+            } catch (error) {
+                console.error("Failed to load contract details:", error);
+            }
+        }
+
+        // Create a new record
+        async function createRecord() {
+            const { web3, contract } = await loadContractDetails();
+            const accounts = await web3.eth.getAccounts();
+            const documentHash = document.getElementById("documentHash").value;
+            const title = document.getElementById("title").value;
+            contract.methods.createDocument(documentHash, title).send({ from: accounts[0] })
+                .on('receipt', receipt => {
+                    console.log('Record created:', receipt);
+                })
+                .on('error', error => {
+                    console.error('Error creating record:', error);
+                });
+        }
+
+        // Transfer ownership of a record
+        async function transferOwnership() {
+            const { web3, contract } = await loadContractDetails();
+            const accounts = await web3.eth.getAccounts();
+            const recordId = document.getElementById("recordId").value;
+            const newOwner = document.getElementById("newOwner").value;
+            contract.methods.transferOwnership(recordId, newOwner).send({ from: accounts[0] })
+                .on('receipt', receipt => {
+                    console.log('Ownership transferred:', receipt);
+                })
+                .on('error', error => {
+                    console.error('Error transferring ownership:', error);
+                });
+        }
+
+        // Get record details
+        async function getRecord() {
+            const { web3, contract } = await loadContractDetails();
+            const recordId = document.getElementById("getRecordId").value;
+            contract.methods.getDocument(recordId).call()
+                .then(record => {
+                    const recordDetails = `
+                        <p>ID: ${record.id}</p>
+                        <p>Document Hash: ${record.hash}</p>
+                        <p>Title: ${record.title}</p>
+                        <p>Owner: ${record.owner}</p>
+                        <p>Timestamp: ${new Date(record.timestamp * 1000).toLocaleString()}</p>
+                    `;
+                    document.getElementById("recordDetails").innerHTML = recordDetails;
+                })
+                .catch(error => {
+                    console.error('Error getting record:', error);
+                });
+        }
+
+        // Add a new version to an existing record
+        async function addVersion() {
+            const { web3, contract } = await loadContractDetails();
+            const accounts = await web3.eth.getAccounts();
+            const recordId = document.getElementById("versionRecordId").value;
+            const versionHash = document.getElementById("versionHash").value;
+            contract.methods.addVersion(recordId, versionHash).send({ from: accounts[0] })
+                .on('receipt', receipt => {
+                    console.log('Version added:', receipt);
+                })
+                .on('error', error => {
+                    console.error('Error adding version:', error);
+                });
+        }
+
+        // Get versions of a record
+        async function getVersions() {
+            const { web3, contract } = await loadContractDetails();
+            const recordId = document.getElementById("getVersionRecordId").value;
+            contract.methods.getDocumentVersions(recordId).call()
+                .then(versions => {
+                    let versionsDetails = '';
+                    versions.forEach(version => {
+                        versionsDetails += `
+                            <p>ID: ${version.id}</p>
+                            <p>Version Hash: ${version.hash}</p>
+                            <p>Timestamp: ${new Date(version.timestamp * 1000).toLocaleString()}</p>
+                        `;
+                    });
+                    document.getElementById("versionsDetails").innerHTML = versionsDetails;
+                })
+                .catch(error => {
+                    console.error('Error getting versions:', error);
+                });
+        }
+    </script>
+</head>
+<body>
+    <h1>eVault System</h1>
+
+    <h2>Create a New Record</h2>
+    <input type="text" id="documentHash" placeholder="Document Hash">
+    <input type="text" id="title" placeholder="Title">
+    <button onclick="createRecord()">Create Record</button>
+
+    <h2>Transfer Ownership</h2>
+    <input type="text" id="recordId" placeholder="Record ID">
+    <input type="text" id="newOwner" placeholder="New Owner Address">
+    <button onclick="transferOwnership()">Transfer Ownership</button>
+
+    <h2>Get Record Details</h2>
+    <input type="text" id="getRecordId" placeholder="Record ID">
+    <button onclick="getRecord()">Get Record</button>
+    <div id="recordDetails"></div>
+
+    <h2>Add a New Version</h2>
+    <input type="text" id="versionRecordId" placeholder="Record ID">
+    <input type="text" id="versionHash" placeholder="Version Hash">
+    <button onclick="addVersion()">Add Version</button>
+
+    <h2>Get Versions</h2>
+    <input type="text" id="getVersionRecordId" placeholder="Record ID">
+    <button onclick="getVersions()">Get Versions</button>
+    <div id="versionsDetails"></div>
+</body>
+</html>
